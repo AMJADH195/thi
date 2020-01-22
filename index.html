@@ -1,0 +1,311 @@
+<html>
+
+<head>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.0.3/dist/leaflet.css" />
+    <script src="https://unpkg.com/leaflet@1.0.3/dist/leaflet.js"></script>
+    <script src="js/geotiff.js"></script>
+    <script src="js/plotty.js"></script>
+    <script type="text/javascript" charset="utf8" src="js/leaflet.ajax.js"></script>
+    <script src="js/leaflet-geotiff.js"></script>
+    <script src="js/jquery-migrate-1.4.1.min.js"></script><!-- jQuery is required -->
+    <link href="css/datepicker.css" rel="stylesheet">
+    <link href="css/semantic.css" rel="stylesheet">
+    <link href="css/jquery-ui.css" rel="stylesheet">
+    <script src="js/datepicker.js"></script>
+    <script src="https://code.jquery.com/jquery-3.4.1.js"
+        integrity="sha256-WpOohJOqMqqyKL9FccASB9O0KwACQJpFTUBLTYOVvVU=" crossorigin="anonymous"></script>
+    <script src="https://code.jquery.com/ui/1.12.1/jquery-ui.js"
+        integrity="sha256-T0Vest3yCU7pafRw9r+settMBX6JkKN06dqBnpQ8d30=" crossorigin="anonymous"></script>
+    <!-- <link rel="stylesheet" href="//code.jquery.com/ui/1.12.1/themes/smoothness/jquery-ui.css"> -->
+    <script src="//code.jquery.com/jquery-1.12.4.js"></script>
+    <script src="//code.jquery.com/ui/1.12.1/jquery-ui.js"></script>
+
+    <!-- leaflet spin -->
+
+  <script src="spin/dist/spin.min.js" charset="utf-8"></script>
+  <script src="leaflet.spin.min.js" charset="utf-8"></script>
+  <script type="text/javascript">
+      window.onload = function () {
+
+      }
+
+  </script>
+    <title>THI</title>
+    <style> 
+        #loader { 
+            border: 12px solid #f3f3f3; 
+            border-radius: 50%; 
+            border-top: 12px solid #444444; 
+            width: 70px; 
+            height: 70px; 
+            animation: spin 1s linear infinite; 
+        } 
+        
+        @keyframes spin { 
+            100% { 
+                transform: rotate(360deg); 
+            } 
+        } 
+        
+        .center { 
+            position: absolute; 
+            top: 0; 
+            bottom: 0; 
+            left: 0; 
+            right: 0; 
+            margin: auto; 
+        } 
+    </style> 
+
+</head>
+
+<body onload="escape()">
+    <div id="loader" class="center"></div> 
+
+    <div>
+        <div class="ui grid" style="margin-left: 10px">
+            <div class="four wide column" style="margin-top: 10px;">
+                <!-- <p> -->
+                <div class="ui container">
+                    <h2>Cattle Heat Index</h2>
+                    <div class="ui justified container">
+                        <p2> Temperature Humidity Index (THI) is a measure
+                            that accounts for the combined effects of environmental temperature and relative humidity on
+                            cattle/livestock to assess the risk of heat stress and prevent major effects.
+                        </p2>
+                    </div>
+                    <div class="ui divider"></div>
+                    <form>
+                        Select Date &nbsp;
+                        <input type="date" id="datepicker" onchange="escape()" min="2019-01-01" max="2019-12-31">
+                    </form>
+
+                    <!-- <div id="datepicker"></div>
+
+                    <script>
+                        $("#datepicker").datepicker({ dateFormat: 'yy-mm-dd' });
+                    </script> -->
+
+                    <p3 style="font-size: 10;font-style: italic;">Data availability : 01-01-2019 to 31-12-2019</p3>
+
+                    <table class="ui celled table">
+                        <thead>
+                            <tr>
+                                <th>Location</th>
+                                <th>THI</th>
+                                <th>Stress Level</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td data-label="Location"><span id="placename"></span></td>
+                                <td data-label="THI"><span id="heatIndexValue"></span></td>
+                                <td data-label="Stress"><span id="stress"></span></td>
+                            </tr>
+                        </tbody>
+                    </table>
+
+                    <p>50 <img id="colorScaleImage" src="" style="vertical-align: middle; height:20px; width:86%;" /> 90
+                    </p>
+                </div>
+                <br> </br>
+                <div class="ui divider"></div>
+                <center>
+                    <div>
+                        <img src="images/logo.png" height="20px" alt="MistEO">
+                        <a href="https://misteo.co/"> | www.misteo.co</a>
+                    </div>
+                </center>
+                <div><span id="tilestatus"></span></div>
+            </div>
+
+            <div class="twelve wide column">
+                <div id="mapid" style="width:100%; height:100vh;float:left;"></div>
+            </div>
+        </div>
+
+    </div>
+
+    <script>
+
+        var changeColorScale = function (selectObject) {
+            heatIndex.setColorScale(selectObject.value);
+            document.getElementById('colorScaleImage').setAttribute('src', heatIndex.colorScaleData);
+        }
+
+        var marker;
+
+        var mymap = L.map('mapid').setView([12.974591, 77.585577], 6);
+
+        var myStyle = { "color": "#4E6069", "weight": 1, "opacity": 0.65 };
+        var geojsonLayer = new L.GeoJSON.AJAX("karnataka_district.geojson", { style: myStyle });
+        geojsonLayer.addTo(mymap);
+
+        function load() {
+
+            mymap.eachLayer(function(layer) {
+               if (layer.options.name=="Heat Index")
+                {
+                   mymap.removeLayer(layer);
+                }
+            });
+
+            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom:10,minZoom:6, attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors' }).addTo(mymap);
+
+            var currentdate = $("#datepicker").val();
+
+            plotty.addColorScale("mycolorscale", ["#00ff00", "#FFFF00", "#ff0000"], [0, 0.5, 1]);
+            var heatIndex = L.leafletGeotiff(
+                url = 'tif/tif' + currentdate + '.tif',
+                options = {
+                    band: 0,
+                    displayMin: 60,
+                    displayMax: 90,
+                    name: 'Heat Index',
+                    colorScale: 'mycolorscale',
+                    clampLow: false,
+                    clampHigh: true,
+                }
+            ).addTo(mymap);
+            mymap.spin(true);
+
+            heatIndex.on('load', function (event) {
+              mymap.spin(false);
+            });
+
+            
+
+            document.getElementById('colorScaleImage').setAttribute('src', heatIndex.colorScaleData);
+
+            mymap.on('click', function (e) {
+
+                var latitude = e.latlng.lat;
+                var longitude = e.latlng.lng;
+                
+                var response;
+                if (!marker) {
+                    marker = L.marker([e.latlng.lat, e.latlng.lng]).addTo(mymap);
+                } else {
+                    marker.setLatLng([e.latlng.lat, e.latlng.lng]);
+                }
+                var xmlHttp = new XMLHttpRequest();
+                xmlHttp.open("GET", 'https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=' + latitude + '&lon=' + longitude + '&zoom=18', false); // false for synchronous request
+                xmlHttp.send(null);
+                response = xmlHttp.responseText;
+                var place_name = JSON.parse(response);
+                let tes = Number(heatIndex.getValueAtLatLng(e.latlng.lat, e.latlng.lng));
+                if (tes < 0 ||  place_name.address.state != "Karnataka") 
+                {
+                        document.getElementById("heatIndexValue").innerHTML = "Out of boundary";
+                        document.getElementById("stress").innerHTML = "Out of Boundary";
+                }
+                else 
+                {
+                        document.getElementById("heatIndexValue").innerHTML = tes.toFixed(1);
+                        var stress_level = stress(tes.toFixed(1));
+                        document.getElementById("stress").innerHTML = stress_level;
+                }
+                document.getElementById("placename").innerHTML = place_name.display_name;
+               
+
+            //     var return_first = function () {
+            //     var tmp = null;
+            //     $.ajax({
+            //     type: "POST",
+            //     dataType: "json",
+
+            //     url: 'https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=' + latitude + '&lon=' + longitude + '&zoom=18',
+            //     success: function (data) {
+
+            //         console.log(data.display_name)
+                    
+            //         place_name =data.display_name;
+            //         state=data.address.state;
+            //         console.log(state);
+            //         document.getElementById("placename").innerHTML = place_name;
+            //         console.log(data.address.state);
+
+            //         mymap.spin(false);
+            //     },
+            //     error: function (error) {
+
+            //         console.log("api call failed");
+            //     }
+            //     });
+            //     return tmp;
+            // }();
+
+                
+                    
+
+                
+                
+                
+
+            });
+
+            function stress(a) {
+                if (a <= 72) {
+                    var st = "No Stress";
+                }
+                else if (a > 72 && a <= 80) {
+                    var st = "Are likely to begin experiencing heat stress";
+                }
+                else if (a > 80 && a <= 89) {
+                    var st = "Very Significant loss in milk production are likely";
+                }
+                else if (a >= 90) {
+                    var st = "Cow shows signs of severe stress and may ultimately die";
+                }
+                return (st);
+            }
+        }
+
+        function escape() {
+            mymap.spin(false);
+            clear();
+            load();
+            mymap.remove(heatIndex);
+            //mymap.removeLayer(heatIndex)                      
+        }
+        function clear()
+        {
+           if(marker!= undefined)
+           {
+            mymap.removeLayer(marker);
+            marker=undefined;
+           }
+           document.getElementById("heatIndexValue").innerHTML ="";
+           document.getElementById("stress").innerHTML = "";
+           document.getElementById("placename").innerHTML = "";
+
+
+
+
+        }
+        function apicall(latitude,longitude)
+        {
+            
+                return(placename);
+        }
+
+
+        document.onreadystatechange = function() { 
+            if (document.readyState !== "complete") { 
+                document.querySelector( 
+                "body").style.visibility = "hidden"; 
+                document.querySelector( 
+                "#loader").style.visibility = "visible"; 
+            } else { 
+                document.querySelector( 
+                "#loader").style.display = "none"; 
+                document.querySelector( 
+                "body").style.visibility = "visible"; 
+                mymap.spin(false);
+            } 
+        }; 
+    </script>
+</body>
+
+
+</html>
